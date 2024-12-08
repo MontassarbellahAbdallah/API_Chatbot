@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 import os
 import google.generativeai as genai
-
+from fastapi.middleware.cors import CORSMiddleware
 # Load environment variables
 load_dotenv()
 
@@ -18,7 +18,13 @@ chat = model.start_chat(history=[])
 
 # Initialize FastAPI app
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Define request and response models
 class QuestionRequest(BaseModel):
     question: str
@@ -29,21 +35,38 @@ class ResponseModel(BaseModel):
 
 # Store chat history (in-memory storage for simplicity; replace with DB for persistence)
 chat_history = []
-
-@app.post("/ask", response_model=ResponseModel)
-async def ask_question(request: QuestionRequest):
+@app.post("/chat", response_model=ResponseModel)
+async def chat_with_bot(request: QuestionRequest):
+    """Répondre à une question envoyée en POST."""
     try:
-        # Get the user's question and send it to the Gemini model
+        # Envoyer la question au modèle Gemini
         response = chat.send_message(request.question, stream=True)
         response_text = ''.join([chunk.text for chunk in response])
 
-        # Save to chat history
-        chat_entry = {"input": request.question, "response": response_text}
+        # Sauvegarder dans l'historique
+        chat_entry = {"response": response_text}
         chat_history.append(chat_entry)
 
         return ResponseModel(input=request.question, response=response_text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing the question: {str(e)}")
+
+@app.get("/ask/{question}", response_model=ResponseModel)
+async def ask_question_path(question: str):
+    """Answer a question passed in the URL path."""
+    try:
+        # Envoyer la question au modèle Gemini
+        response = chat.send_message(question, stream=True)
+        response_text = ''.join([chunk.text for chunk in response])
+
+        # Sauvegarder dans l'historique
+        chat_entry = {"response": response_text}
+        chat_history.append(chat_entry)
+
+        return ResponseModel(input=question, response=response_text)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing the question: {str(e)}")
+
 
 @app.get("/history")
 async def get_chat_history():
