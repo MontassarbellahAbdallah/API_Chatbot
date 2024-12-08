@@ -8,7 +8,7 @@ import google.generativeai as genai
 load_dotenv()
 
 # Configure the Generative AI model
-api_key = os.getenv("GENAI_API_KEY")
+api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key:
     raise EnvironmentError("API key for Generative AI not found in environment variables.")
 
